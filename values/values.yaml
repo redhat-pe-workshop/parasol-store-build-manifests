@@ -1,0 +1,6 @@
+image:
+  host: {{ parasol_store_build_image_registry_host }}
+
+registry:
+  username: {{ parasol_store_build_registry_username }}
+  password: {{ parasol_store_build_registry_password }}
