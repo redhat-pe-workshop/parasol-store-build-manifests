@@ -62,6 +62,10 @@ Create the name of the service account to use
 {{- end }}
 
 {{- define "quay.auth" -}}
-{{- $auth:= printf "%s:%s" .Values.registry.username .Values.registry.password -}}
+{{- $auth:= printf "%s:%s" .Values.registry.username .Values.registry.password }}
 {{- $auth | b64enc -}}
+{{- end }}
+
+{{- define "parasol-store.image" -}}
+{{- printf "%s/%s/%s" .Values.image.host .Values.image.organization .Values.image.name }}
 {{- end }}
