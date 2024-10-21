@@ -1,0 +1,1 @@
+Gitops manifests for building and promoting the Parasol store application
