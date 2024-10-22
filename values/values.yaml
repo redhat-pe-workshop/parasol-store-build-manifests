@@ -3,12 +3,10 @@ git:
   branch: {{ parasol_store_git_branch }}
 
 image:
-  dockerfile: ./src/main/docker/Dockerfile.jvm
-  host: {{ parasol_store_build_image_registry_host }}
-  organization: {{ parasol_store_build_image_registry_organization }}
   name: {{ parasol_store_build_image_name }}
-  tag: {{ parasol_store_build_image_tag }}
 
 registry:
+  host: {{ parasol_store_build_registry_host }}
+  organization: {{ parasol_store_build_registry_organization }}
   username: {{ parasol_store_build_registry_username }}
   password: {{ parasol_store_build_registry_password }}

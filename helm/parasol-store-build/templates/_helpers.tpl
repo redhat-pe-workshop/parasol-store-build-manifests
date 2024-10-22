@@ -67,5 +67,5 @@ Create the name of the service account to use
 {{- end }}
 
 {{- define "parasol-store.image" -}}
-{{- printf "%s/%s/%s" .Values.image.host .Values.image.organization .Values.image.name }}
+{{- printf "%s/%s/%s" .Values.registry.host .Values.registry.organization .Values.image.name }}
 {{- end }}
