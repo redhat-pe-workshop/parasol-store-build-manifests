@@ -18,7 +18,7 @@ spec:
             name: cel
           params:
             - name: filter
-              value: (body.object_kind == 'merge_request') && (body.project.http_url == '{{ .Values.git.repo }}') && (int(body.object_attributes.state_id) == 1)
+              value: (body.object_kind == 'merge_request') && (body.project.http_url == '{{ include "parasol-store.git.repo" . }}') && (int(body.object_attributes.state_id) == 1)
             - name: overlays
               value:
                 - key: commit-id-short

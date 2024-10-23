@@ -1,5 +1,7 @@
 git:
-  repo:
+  host:
+  group: 
+  repo: 
 
 image:
   dockerfile: "./src/main/docker/Dockerfile.jvm"
@@ -10,3 +12,6 @@ registry:
   organization: 
   username: 
   password:
+
+cluster:
+  subdomain:

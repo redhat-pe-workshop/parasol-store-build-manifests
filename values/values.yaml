@@ -1,4 +1,6 @@
 git:
+  host: {{ parasol_store_git_host }}
+  group: {{ parasol_store_git_group }}
   repo: {{ parasol_store_git_repo }}
 
 image:
@@ -9,3 +11,6 @@ registry:
   organization: {{ parasol_store_build_registry_organization }}
   username: {{ parasol_store_build_registry_username }}
   password: {{ parasol_store_build_registry_password }}
+
+cluster:
+  subdomain: {{ parasol_store_build_cluster_subdomain }}

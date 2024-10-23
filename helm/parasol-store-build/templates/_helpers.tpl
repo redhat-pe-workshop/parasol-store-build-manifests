@@ -69,3 +69,7 @@ Create the name of the service account to use
 {{- define "parasol-store.image" -}}
 {{- printf "%s/%s/%s" .Values.registry.host .Values.registry.organization .Values.image.name }}
 {{- end }}
+
+{{- define "parasol-store.git.repo" -}}
+{{- printf "https://%s/%s/%s.git" .Values.git.host .Values.git.group .Values.git.repo }}
+{{- end }}
