@@ -1,0 +1,12 @@
+git:
+  repo:
+
+image:
+  dockerfile: "./src/main/docker/Dockerfile.jvm"
+  name:
+
+registry:
+  host: 
+  organization: 
+  username: 
+  password:

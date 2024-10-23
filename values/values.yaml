@@ -1,6 +1,5 @@
 git:
   repo: {{ parasol_store_git_repo }}
-  branch: {{ parasol_store_git_branch }}
 
 image:
   name: {{ parasol_store_build_image_name }}

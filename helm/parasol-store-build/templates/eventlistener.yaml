@@ -1,0 +1,25 @@
+---
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: EventListener
+metadata:
+  name: {{ include "parasol-store-build.name" . }}-el
+spec:
+  serviceAccountName: pipeline
+  triggers:
+    - name: pr-open-trigger
+      template:
+        ref: {{ include "parasol-store-build.name" . }}-build-tt
+      bindings:
+        - kind: TriggerBinding
+          ref: {{ include "parasol-store-build.name" . }}-build-pr
+      interceptors:
+        - ref: 
+            kind: ClusterInterceptor
+            name: cel
+          params:
+            - name: filter
+              value: (body.object_kind == 'merge_request') && (body.project.http_url == '{{ .Values.git.repo }}') && (int(body.object_attributes.state_id) == 1)
+            - name: overlays
+              value:
+                - key: commit-id-short
+                  expression: "body.object_attributes.last_commit.id.truncate(7)"   
