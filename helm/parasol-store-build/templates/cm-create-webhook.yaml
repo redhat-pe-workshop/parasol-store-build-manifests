@@ -38,6 +38,7 @@ data:
             body_format: form-urlencoded
             body:
               url: '{{ "{{" }} webhook_url {{ "}}" }}'
+              push_events: false
               merge_requests_events: true
               enable_ssl_verification: false
             headers:
