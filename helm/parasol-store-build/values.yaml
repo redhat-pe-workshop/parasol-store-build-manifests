@@ -2,10 +2,23 @@ git:
   host:
   group: 
   repo: 
+  user:
 
 image:
   dockerfile: "./src/main/docker/Dockerfile.jvm"
   name:
+
+manifests:
+  dev: 
+  staging: 
+  prod: 
+  git:
+    group: 
+    repo: 
+    branch:
+      dev: 
+      staging: 
+      prod: 
 
 registry:
   host: 

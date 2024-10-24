@@ -14,3 +14,19 @@ spec:
       value: {{ include "parasol-store.image" . }}
     - name: dockerfile
       value: {{ .Values.image.dockerfile }}
+    - name: manifest-repo
+      value: {{ include "parasol-store-manifests.git.repo" .}}
+    - name: manifest-branch-dev
+      value: {{ .Values.manifests.git.branch.dev }}
+    - name: manifest-branch-staging
+      value: {{ .Values.manifests.git.branch.staging }}
+    - name: manifest-file-dev
+      value: {{ .Values.manifests.dev }}
+    - name: manifest-file-staging
+      value: {{ .Values.manifests.staging }}
+    - name: git-token-secret-name
+      value: {{ include "parasol-store-build.name" . }}-external-git-token
+    - name: git-token-secret-key
+      value: token
+    - name: git-user
+      value: {{ .Values.git.user }}

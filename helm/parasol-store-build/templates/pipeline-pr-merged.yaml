@@ -18,6 +18,22 @@ spec:
       type: string
     - name: output-image-tag
       type: string
+    - name: manifest-repo
+      type: string
+    - name: manifest-branch-dev
+      type: string
+    - name: manifest-branch-staging
+      type: string
+    - name: manifest-file-dev
+      type: string
+    - name: manifest-file-staging
+      type: string
+    - name: git-token-secret-name
+      type: string
+    - name: git-token-secret-key
+      type: string
+    - name: git-user
+      type: string
   tasks:
     - name: git-clone
       params:
@@ -60,6 +76,55 @@ spec:
       workspaces:
         - name: source
           workspace: source-folder
+    - name: update-manifest-dev
+      runAfter:
+        - build-and-push-image
+      taskRef:
+        kind: Task
+        name: update-manifest
+      params:
+        - name: IMAGE_TAG
+          value: $(params.output-image-tag)
+        - name: TARGET_BRANCH
+          value: $(params.manifest-branch-dev)
+        - name: MANIFEST_FILE
+          value: $(params.manifest-file-dev)
+        - name: MANIFEST_REPO
+          value: $(params.manifest-repo)
+        - name: GIT_TOKEN_SECRET_NAME
+          value: $(params.git-token-secret-name)
+        - name: GIT_TOKEN_SECRET_KEY
+          value: $(params.git-token-secret-key)
+        - name: GIT_PUSH_USER_NAME
+          value: $(params.git-user)
+      workspaces:
+      - name: source
+        workspace: ephemeral
+    - name: update-manifest-staging
+      runAfter:
+        - build-and-push-image
+      taskRef:
+        kind: Task
+        name: update-manifest
+      params:
+        - name: IMAGE_TAG
+          value: $(params.output-image-tag)
+        - name: TARGET_BRANCH
+          value: $(params.manifest-branch-staging)
+        - name: MANIFEST_FILE
+          value: $(params.manifest-file-staging)
+        - name: MANIFEST_REPO
+          value: $(params.manifest-repo)
+        - name: GIT_TOKEN_SECRET_NAME
+          value: $(params.git-token-secret-name)
+        - name: GIT_TOKEN_SECRET_KEY
+          value: $(params.git-token-secret-key)
+        - name: GIT_PUSH_USER_NAME
+          value: $(params.git-user)
+      workspaces:
+      - name: source
+        workspace: ephemeral
   workspaces:
     - name: source-folder
     - name: maven-settings
+    - name: ephemeral

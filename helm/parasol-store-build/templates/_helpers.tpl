@@ -73,3 +73,7 @@ Create the name of the service account to use
 {{- define "parasol-store.git.repo" -}}
 {{- printf "https://%s/%s/%s.git" .Values.git.host .Values.git.group .Values.git.repo }}
 {{- end }}
+
+{{- define "parasol-store-manifests.git.repo" -}}
+{{- printf "https://%s/%s/%s.git" .Values.git.host .Values.manifests.git.group .Values.manifests.git.repo }}
+{{- end }}

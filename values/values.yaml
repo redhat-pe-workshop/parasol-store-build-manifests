@@ -2,9 +2,22 @@ git:
   host: {{ parasol_store_git_host }}
   group: {{ parasol_store_git_group }}
   repo: {{ parasol_store_git_repo }}
+  user: {{ parasol_store_git_user }}
 
 image:
   name: {{ parasol_store_build_image_name }}
+
+manifests:
+  dev: {{ parasol_store_manifest_file_dev }}
+  staging: {{ parasol_store_manifest_file_staging }}
+  prod: {{ parasol_store_manifest_file_prod }}
+  git:
+    group: {{ parasol_store_manifests_git_group }}
+    repo: {{ parasol_store_manifests_git_repo }}
+    branch:
+      dev: {{ parasol_store_manifests_git_branch_dev }}
+      staging: {{ parasol_store_manifests_git_branch_staging }}
+      prod: {{ parasol_store_manifests_git_branch_prod }}
 
 registry:
   host: {{ parasol_store_build_registry_host }}
