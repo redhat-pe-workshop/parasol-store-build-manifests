@@ -1,0 +1,43 @@
+---
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: TriggerTemplate
+metadata:
+  name: {{ include "parasol-store-build.name" . }}-pr-open
+spec:
+  params:
+    - name: git-repo-url
+    - name: git-revision
+    - name: git-revision-short
+    - name: output-image
+    - name: dockerfile
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1beta1
+      kind: PipelineRun
+      metadata:
+        name: {{ include "parasol-store-build.name" . }}-pr-open-$(uid)
+      spec:
+        params:
+          - name: source-repo
+            value: $(tt.params.git-repo-url)
+          - name: source-revision
+            value: $(tt.params.git-revision)
+          - name: dockerfile
+            value: $(tt.params.dockerfile)
+          - name: output-image
+            value: $(tt.params.output-image)
+          - name: output-image-tag
+            value: $(tt.params.git-revision-short)
+        pipelineRef:
+          name: {{ include "parasol-store-build.name" . }}-pr-open
+        serviceAccountName: pipeline
+        workspaces:
+          - name: source-folder
+            volumeClaimTemplate:
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: 1Gi
+          - emptyDir: {}
+            name: maven-settings

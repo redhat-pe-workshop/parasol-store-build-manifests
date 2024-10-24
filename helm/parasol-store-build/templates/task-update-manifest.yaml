@@ -1,0 +1,109 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: update-manifest
+spec:
+  description: >-
+    This task updates the manifest for the current application to point to the image tag created with the short commit.
+  workspaces:
+    - name: source
+  params:
+    - name: IMAGE_TAG
+      description: the tag of the image
+      type: string
+    - name: TARGET_BRANCH
+      description: Target branch to push to
+      type: string
+    - name: CREATE_TARGET_BRANCH
+      description: Whether this is a new branch we want to push to
+      type: string
+      default: "false"
+    - name: GIT_USER_NAME
+      type: string
+      description: Git user name for performing the push operation.
+      default: "Tekton Pipeline"
+    - name: GIT_USER_EMAIL
+      type: string
+      description: Git user email for performing the push operation.
+      default: "tekton@rhdemo.com"
+    - name: MANIFEST_FILE
+      description: File in which the image configuration is stored.
+      type: string
+    - name: MANIFEST_REPO
+      description: Repo in which the image configuration is stored.
+      type: string
+    - name: GIT_TOKEN_SECRET_NAME
+      type: string
+    - name: GIT_TOKEN_SECRET_KEY
+      type: string
+  steps:
+    - name: git
+      image: registry.redhat.io/ubi9/toolbox:9.4
+      workingDir: $(workspaces.source.path)
+      env:
+        - name: GIT_ACCESS_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: $(params.GIT_TOKEN_SECRET_KEY)
+              name: $(params.GIT_TOKEN_SECRET_NAME)
+      script: |
+        #!/usr/bin/env bash
+
+        set -e
+        
+        CHECKOUT_DIR=$(workspaces.source.path)
+
+        cleandir() {
+          # Delete any existing contents of the repo directory if it exists.
+          #
+          # We don't just "rm -rf ${CHECKOUT_DIR}" because ${CHECKOUT_DIR} might be "/"
+          # or the root of a mounted volume.
+          if [ -d "${CHECKOUT_DIR}" ] ; then
+            # Delete non-hidden files and directories
+            rm -rf "${CHECKOUT_DIR:?}"/*
+            # Delete files and directories starting with . but excluding ..
+            rm -rf "${CHECKOUT_DIR}"/.[!.]*
+            # Delete files and directories starting with .. plus any other character
+            rm -rf "${CHECKOUT_DIR}"/..?*
+          fi
+        }
+
+        cleandir
+
+        URI_REGEX='^(([^:/?#]+):)?(//((([^:/?#]+)@)?([^:/?#]+)(:([0-9]+))?))?(/([^?#]*))(\?([^#]*))?(#(.*))?'
+        MANIFEST_REPO="$(params.MANIFEST_REPO)"
+
+        if [[ "$MANIFEST_REPO" =~ $URI_REGEX ]]; then
+           REPO_SCHEME="${BASH_REMATCH[2]}"
+           REPO_HOST="${BASH_REMATCH[7]}"
+           REPO_PATH="${BASH_REMATCH[10]}"
+        fi
+
+        MANIFEST_REPO_AUTH="$SCHEME://$GIT_ACCESS_TOKEN@$HOST$PATH"
+
+        echo $MANIFEST_REPO_AUTH
+
+        # Setting up the git config.
+        /usr/bin/git config --global user.email "$(params.GIT_USER_EMAIL)"
+        /usr/bin/git config --global user.name "$(params.GIT_USER_NAME)"
+
+        /usr/bin/git clone $MANIFEST_REPO_AUTH manifest
+
+        cd manifest
+
+        if $(params.CREATE_TARGET_BRANCH); then
+          /usr/bin/git checkout -b $(params.TARGET_BRANCH)
+        else
+          /usr/bin/git checkout $(params.TARGET_BRANCH)
+        fi
+
+        # Set to the short commit value passed as parameter.
+        # Notice the enclosing " to keep it as a string in the resulting YAML.
+        IMAGE_TAG=$(params.IMAGE_TAG)
+        TAG=\"${IMAGE_TAG}\"
+
+        /usr/bin/sed -i "s#\(.*tag:\s*\).*#\1${TAG}#" $(params.MANIFEST_FILE)
+        
+        /usr/bin/git add $(params.MANIFEST_FILE)
+        /usr/bin/git commit -m "Automatically updated manifest to point to image tag $(params.IMAGE)"
+        /usr/bin/git push origin $(params.TARGET_BRANCH)

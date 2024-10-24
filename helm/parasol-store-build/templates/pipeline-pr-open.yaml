@@ -1,0 +1,65 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: {{ include "parasol-store-build.name" . }}-pr-open
+  labels:
+    {{- include "parasol-store-build.labels" . | nindent 4 }}
+spec:
+  params:
+    - name: source-repo
+      description: source repo that contains the application code
+      type: string
+    - name: source-revision
+      description: source revision to build from
+      type: string
+    - name: dockerfile
+      type: string
+    - name: output-image
+      type: string
+    - name: output-image-tag
+      type: string
+  tasks:
+    - name: git-clone
+      params:
+        - name: url
+          value: $(params.source-repo)
+        - name: revision
+          value: $(params.source-revision)
+      taskRef:
+        kind: ClusterTask
+        name: git-clone    
+      workspaces:
+        - name: output
+          workspace: source-folder
+    - name: build-source
+      runAfter:
+        - git-clone
+      params:
+        - name: GOALS
+          value:
+            - package
+      taskRef:
+        kind: ClusterTask
+        name: maven
+      workspaces:
+        - name: source
+          workspace: source-folder
+        - name: maven-settings
+          workspace: maven-settings
+    - name: build-and-push-image
+      runAfter:
+        - build-source
+      params:
+        - name: DOCKERFILE
+          value: $(params.dockerfile)
+        - name: IMAGE
+          value: $(params.output-image):$(params.output-image-tag)
+      taskRef:
+        kind: ClusterTask
+        name: buildah
+      workspaces:
+        - name: source
+          workspace: source-folder
+  workspaces:
+    - name: source-folder
+    - name: maven-settings

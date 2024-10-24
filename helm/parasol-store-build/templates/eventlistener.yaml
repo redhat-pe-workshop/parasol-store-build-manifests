@@ -8,10 +8,10 @@ spec:
   triggers:
     - name: pr-open-trigger
       template:
-        ref: {{ include "parasol-store-build.name" . }}-build-tt
+        ref: {{ include "parasol-store-build.name" . }}-pr-open
       bindings:
         - kind: TriggerBinding
-          ref: {{ include "parasol-store-build.name" . }}-build-pr
+          ref: {{ include "parasol-store-build.name" . }}-pr-open
       interceptors:
         - ref: 
             kind: ClusterInterceptor
@@ -22,4 +22,21 @@ spec:
             - name: overlays
               value:
                 - key: commit-id-short
-                  expression: "body.object_attributes.last_commit.id.truncate(7)"   
+                  expression: "body.object_attributes.last_commit.id.truncate(7)"
+    - name: pr-merged-trigger
+      template:
+        ref: {{ include "parasol-store-build.name" . }}-pr-merged
+      bindings:
+        - kind: TriggerBinding
+          ref: {{ include "parasol-store-build.name" . }}-pr-merged
+      interceptors:
+        - ref: 
+            kind: ClusterInterceptor
+            name: cel
+          params:
+            - name: filter
+              value: (body.object_kind == 'merge_request') && (body.project.http_url == '{{ include "parasol-store.git.repo" . }}') && (int(body.object_attributes.state_id) == 3)
+            - name: overlays
+              value:
+                - key: commit-id-short
+                  expression: "body.object_attributes.merge_commit_sha.truncate(7)"    

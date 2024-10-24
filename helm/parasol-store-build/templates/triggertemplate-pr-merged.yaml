@@ -2,7 +2,7 @@
 apiVersion: triggers.tekton.dev/v1alpha1
 kind: TriggerTemplate
 metadata:
-  name: {{ include "parasol-store-build.name" . }}-build-tt
+  name: {{ include "parasol-store-build.name" . }}-pr-merged
 spec:
   params:
     - name: git-repo-url
@@ -14,7 +14,7 @@ spec:
     - apiVersion: tekton.dev/v1beta1
       kind: PipelineRun
       metadata:
-        name: {{ include "parasol-store-build.name" . }}-build-$(uid)
+        name: {{ include "parasol-store-build.name" . }}-pr-merged-$(uid)
       spec:
         params:
           - name: source-repo
@@ -28,7 +28,7 @@ spec:
           - name: output-image-tag
             value: $(tt.params.git-revision-short)
         pipelineRef:
-          name: {{ include "parasol-store-build.name" . }}
+          name: {{ include "parasol-store-build.name" . }}-pr-merged
         serviceAccountName: pipeline
         workspaces:
           - name: source-folder

@@ -1,7 +1,7 @@
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline
 metadata:
-  name: {{ include "parasol-store-build.name" . }}
+  name: {{ include "parasol-store-build.name" . }}-pr-merged
   labels:
     {{- include "parasol-store-build.labels" . | nindent 4 }}
 spec:
