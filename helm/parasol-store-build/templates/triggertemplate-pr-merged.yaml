@@ -13,8 +13,10 @@ spec:
     - name: manifest-repo
     - name: manifest-branch-dev
     - name: manifest-branch-staging
+    - name: manifest-branch-prod
     - name: manifest-file-dev
     - name: manifest-file-staging
+    - name: manifest-file-prod
     - name: git-token-secret-name
     - name: git-token-secret-key
     - name: git-user
@@ -41,10 +43,14 @@ spec:
             value: $(tt.params.manifest-branch-dev)
           - name: manifest-branch-staging
             value: $(tt.params.manifest-branch-staging)
+          - name: manifest-branch-prod
+            value: $(tt.params.manifest-branch-prod)
           - name: manifest-file-dev
             value: $(tt.params.manifest-file-dev)
           - name: manifest-file-staging
             value: $(tt.params.manifest-file-staging)
+          - name: manifest-file-prod
+            value: $(tt.params.manifest-file-prod)
           - name: git-token-secret-name
             value: $(tt.params.git-token-secret-name)
           - name: git-token-secret-key

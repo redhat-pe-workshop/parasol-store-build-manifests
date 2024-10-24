@@ -20,10 +20,14 @@ spec:
       value: {{ .Values.manifests.git.branch.dev }}
     - name: manifest-branch-staging
       value: {{ .Values.manifests.git.branch.staging }}
+    - name: manifest-branch-prod
+      value: {{ .Values.manifests.git.branch.prod }}
     - name: manifest-file-dev
       value: {{ .Values.manifests.dev }}
     - name: manifest-file-staging
       value: {{ .Values.manifests.staging }}
+    - name: manifest-file-prod
+      value: {{ .Values.manifests.prod }}
     - name: git-token-secret-name
       value: {{ include "parasol-store-build.name" . }}-git-token
     - name: git-token-secret-key
