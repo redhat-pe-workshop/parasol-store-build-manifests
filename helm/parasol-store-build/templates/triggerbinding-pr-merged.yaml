@@ -25,7 +25,7 @@ spec:
     - name: manifest-file-staging
       value: {{ .Values.manifests.staging }}
     - name: git-token-secret-name
-      value: {{ include "parasol-store-build.name" . }}-external-git-token
+      value: {{ include "parasol-store-build.name" . }}-git-token
     - name: git-token-secret-key
       value: token
     - name: git-user
