@@ -36,6 +36,9 @@ spec:
       type: string
     - name: GIT_TOKEN_SECRET_KEY
       type: string
+    - name: GIT_PUSH_USER_NAME
+      type: string
+      default: "root"
   steps:
     - name: git
       image: registry.redhat.io/ubi9/toolbox:9.4
@@ -79,7 +82,7 @@ spec:
            REPO_PATH="${BASH_REMATCH[10]}"
         fi
 
-        MANIFEST_REPO_AUTH="$SCHEME://$GIT_ACCESS_TOKEN@$HOST$PATH"
+        MANIFEST_REPO_AUTH="$REPO_SCHEME://$(params.GIT_PUSH_USER_NAME):$GIT_ACCESS_TOKEN@$REPO_HOST$REPO_PATH"
 
         echo $MANIFEST_REPO_AUTH
 
