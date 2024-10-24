@@ -105,5 +105,5 @@ spec:
         /usr/bin/sed -i "s#\(.*tag:\s*\).*#\1${TAG}#" $(params.MANIFEST_FILE)
         
         /usr/bin/git add $(params.MANIFEST_FILE)
-        /usr/bin/git commit -m "Automatically updated manifest to point to image tag $(params.IMAGE)"
+        /usr/bin/git commit -m "Automatically updated manifest to point to image tag $(params.IMAGE_TAG)"
         /usr/bin/git push origin $(params.TARGET_BRANCH)
