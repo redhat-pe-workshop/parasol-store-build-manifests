@@ -141,7 +141,7 @@ spec:
           value: $(params.manifest-branch-prod)
         - name: FEATURE_BRANCH
           value: "feature-$(params.output-image-tag)"
-        - name: CREATE_TARGET_BRANCH
+        - name: CREATE_FEATURE_BRANCH
           value: "true"
         - name: MANIFEST_FILE
           value: $(params.manifest-file-prod)
