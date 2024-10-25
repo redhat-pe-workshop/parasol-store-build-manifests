@@ -154,8 +154,31 @@ spec:
         - name: GIT_PUSH_USER_NAME
           value: $(params.git-user)
       workspaces:
-      - name: source
-        workspace: ephemeral
+        - name: source
+          workspace: ephemeral
+    - name: open-pr-manifest-prod
+      runAfter:
+        - update-manifest-prod
+      taskRef:
+        kind: Task
+        name: open-pr
+      params:
+        - name: GITLAB_REPO_URL
+          value: $(params.manifest-repo)
+        - name: SOURCE_BRANCH
+          value: "feature-$(params.output-image-tag)"
+        - name: TARGET_BRANCH
+          value: $(params.manifest-branch-prod)
+        - name: PR_TITLE
+          value: "Update prod image to $(params.output-image-tag)"
+        - name: PR_DESCRIPTION
+          value: "Update prod image to $(params.output-image):$(params.output-image-tag)"
+        - name: PR_REMOVE_SOURCE_BRANCH
+          value: "True"
+        - name: GIT_TOKEN_SECRET_NAME
+          value: $(params.git-token-secret-name)
+        - name: GIT_TOKEN_SECRET_KEY
+          value: $(params.git-token-secret-key)        
   workspaces:
     - name: source-folder
     - name: maven-settings
