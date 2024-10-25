@@ -60,6 +60,24 @@ spec:
       workspaces:
         - name: source
           workspace: source-folder
+  finally:
+    - name: gitlab-update-task
+      params:
+        - name: GITLAB_HOST_URL
+          value: $(params.source-repo)
+        - name: DESCRIPTION
+          value: Compilation error
+        - name: TARGET_URL
+          value: ''
+        - name: SHA
+          value: $(params.source-revision)
+        - name: TASKS_STATUS
+          value: $(tasks.status)
+        - name: GITLAB_TOKEN_SECRET_NAME
+          value: parasol-store-build-git-token
+      taskRef:
+        kind: Task
+        name: gitlab-set-status
   workspaces:
     - name: source-folder
     - name: maven-settings
