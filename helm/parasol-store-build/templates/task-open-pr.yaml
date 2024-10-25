@@ -1,0 +1,105 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: open-pr
+spec:
+  description: >-
+    This task will open a PR on a GitLab server based on several parameters.
+  params:
+    - name: GITLAB_REPO_URL
+      type: string
+    - name: SOURCE_BRANCH
+      type: string
+    - name: TARGET_BRANCH
+      type: string
+    - name: PR_TITLE
+      type: string
+    - name: PR_DESCRIPTION
+      type: string
+    - name: PR_REMOVE_SOURCE_BRANCH
+      type: string
+    - name: GIT_TOKEN_SECRET_NAME
+      type: string
+    - name: GIT_TOKEN_SECRET_KEY
+      type: string
+  results:
+    - name: NUMBER
+      description: Number of the created pull request.
+    - name: URL
+      description: URL of the created pull request.
+  steps:
+    - name: open-pr
+      image: registry.access.redhat.com/ubi9/python-312:1
+      env:
+        - name: GIT_ACCESS_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: $(params.GIT_TOKEN_SECRET_KEY)
+              name: $(params.GIT_TOKEN_SECRET_NAME)
+        - name: PULLREQUEST_NUMBER_PATH
+          value: $(results.NUMBER.path)
+        - name: PULLREQUEST_URL_PATH
+          value: $(results.URL.path)
+      script: |
+        #!/usr/libexec/platform-python
+
+        import re
+        import os
+        import sys
+        import json
+        import http.client
+        import urllib.parse
+
+        gitlab_repo_url = "$(params.GITLAB_REPO_URL)"
+
+        result = re.search("^(([^:/?#]+):)?(//((([^:/?#]+)@)?([^:/?#]+)(:([0-9]+))?))?(/([^?#\.]*)([.].*)?)", gitlab_repo_url)
+        gitlab_scheme = result.group(2)
+        gitlab_host = result.group(7)
+        gitlab_project = result.group(11)
+
+        gitlab_token = os.environ.get('GIT_ACCESS_TOKEN')
+        source_branch = "$(params.SOURCE_BRANCH)"
+        target_branch = "$(params.TARGET_BRANCH)"
+        title = "$(params.PR_TITLE)"
+        description = "$(params.PR_DESCRIPTION)"
+        pr_remove_source_branch = "$(params.PR_REMOVE_SOURCE_BRANCH)"
+        if (pr_remove_source_branch == 'true') or (pr_remove_source_branch == 'True'):
+          remove_source_branch = True
+        else:
+          remove_source_branch = False
+
+        encoded_repo_name = urllib.parse.quote(gitlab_project, safe="")
+
+        headers = {
+            "User-Agent": "Tekton",
+            "Authorization": f"Bearer {gitlab_token}",
+        }
+
+        params = {
+            "source_branch": source_branch,
+            "target_branch": target_branch,
+            "title": title,
+            "description": description,
+            "remove_source_branch": remove_source_branch
+        }
+
+        encoded_params = urllib.parse.urlencode(params)
+
+        api_url = f"/api/v4/projects/{encoded_repo_name}/merge_requests?{encoded_params}"
+
+        conn = http.client.HTTPSConnection(gitlab_host)
+
+        try:
+            conn.request("POST", api_url, headers=headers)
+
+            resp = conn.getresponse()
+            if not str(resp.status).startswith("2"):
+                print("Error: %d" % (resp.status))
+                print(resp.read())
+                sys.exit(1)
+            else:
+              body = json.loads(resp.read().decode())
+              open(os.environ.get('PULLREQUEST_NUMBER_PATH'), 'w').write(f'{body["id"]}')
+              open(os.environ.get('PULLREQUEST_URL_PATH'), 'w').write(body["web_url"])
+        finally:
+            conn.close()
