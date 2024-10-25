@@ -45,7 +45,8 @@ spec:
         status.
       name: TARGET_URL
       type: string
-    - description: |
+    - default: Gitlab status from Tekton pipeline
+      description: |
         A short description of the status.
       name: DESCRIPTION
       type: string
