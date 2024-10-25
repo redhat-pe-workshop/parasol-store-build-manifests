@@ -1,0 +1,170 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  annotations:
+    tekton.dev/categories: Git
+    tekton.dev/displayName: Set Gitlab commit status
+    tekton.dev/pipelines.minVersion: 0.12.1
+    tekton.dev/platforms: linux/amd64
+    tekton.dev/tags: 'gitlab, git'
+  labels:
+    app.kubernetes.io/version: '0.2'
+  name: gitlab-set-status
+spec:
+  description: |-
+    This task will set the status of the CI job to the specified value along with a link to the specified target URL where developers can follow the progress of the CI job.
+    The `gitlab-set-status` task allows external services to mark GitLab commits with an `error`, `failure`, `pending`, or `success` state, which is then reflected in merge requests involving those commits. Statuses include as well a `description`, a `target_url` and a `coverage`, to give the user informations about the CI statuses or a direct link to the full log.
+  params:
+    - default: gitlab.com
+      description: |
+        The GitLab host, adjust this if you run a GitLab enterprise.
+      name: GITLAB_HOST_URL
+      type: string
+    - default: /api/v4
+      description: |
+        The API path prefix, GitLab Enterprise has a prefix e.g. /api/v4
+      name: API_PATH_PREFIX
+      type: string
+    - default: gitlab-api-secret
+      description: |
+        The name of the kubernetes secret that contains the GitLab token, default: gitlab-api-secret
+      name: GITLAB_TOKEN_SECRET_NAME
+      type: string
+    - default: token
+      description: |
+        The key within the kubernetes secret that contains the GitLab token, default: token
+      name: GITLAB_TOKEN_SECRET_KEY
+      type: string
+    - description: |
+        Commit SHA to set the status for.
+      name: SHA
+      type: string
+    - description: |
+        The target URL to associate with this status. This URL will be linked
+        from the GitLab UI to allow users to easily see the source of the
+        status.
+      name: TARGET_URL
+      type: string
+    - default: Gitlab status from Tekton pipeline
+      description: |
+        A short description of the status.
+      name: DESCRIPTION
+      type: string
+    - default: continuous-integration/tekton
+      description: |
+        The GitLab context, A string label to differentiate this status from
+        the status of other systems. ie: "continuous-integration/tekton"
+      name: CONTEXT
+      type: string
+    - description: |
+        The state of the tasks run. Can be one of the following `Succeeded`,
+        `Failed`, `Completed`, or `None`. This will be mapped to `success` or `failed`.
+      name: TASKS_STATUS
+      type: string
+    - default: ''
+      description: |
+        The total code coverage.
+      name: COVERAGE
+      type: string
+  steps:
+    - computeResources: {}
+      env:
+        - name: GITLAB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: $(params.GITLAB_TOKEN_SECRET_KEY)
+              name: $(params.GITLAB_TOKEN_SECRET_NAME)
+      image: 'registry.access.redhat.com/ubi8/python-38@sha256:af6f93b81f9313de95966e8cd681edb9dbcb5fdbddc5a4cc365af8e4534096ef'
+      name: set-status
+      script: |
+        #!/usr/libexec/platform-python
+
+        """This script will set the pipeline status of a commit on GitLab."""
+        import os
+        import sys
+        import json
+        import http.client
+        import urllib.parse
+        import re
+
+        GITLAB_SOURCE_URL = "$(params.GITLAB_HOST_URL)"
+
+        from urllib.parse import urlparse
+
+        # Sample URL
+        url = GITLAB_SOURCE_URL
+
+        # Parse the URL
+        parsed_url = urlparse(url)
+
+        # Extract components
+        scheme = parsed_url.scheme
+        gitlab_host = parsed_url.netloc
+        repo_path = parsed_url.path.lstrip('/')
+        #remove suffix .git
+        repo_path = repo_path[:-len('.git')]
+
+        print(f"scheme = '{scheme}'")
+        print(f"gitlab_host = '{gitlab_host}'")
+        print(f"repo_path = '{repo_path}'")
+
+        GITLAB_HOST_URL = gitlab_host
+        REPO_FULL_NAME = repo_path
+
+        GITLAB_TOKEN = os.getenv("GITLAB_TOKEN")
+        API_PATH_PREFIX = "$(params.API_PATH_PREFIX)"
+
+        STATE = "$(params.TASKS_STATUS)" 
+        print(f"TASKS_STATUS = '{STATE}'")
+
+        SHA = "$(params.SHA)"
+        CONTEXT = "$(params.CONTEXT)"
+        TARGET_URL = "$(params.TARGET_URL)"
+        DESCRIPTION = "$(params.DESCRIPTION)"
+        COVERAGE = "$(params.COVERAGE)"
+
+
+        if STATE in ['Succeeded', 'Completed']:
+            STATE = "success"
+        else:
+            STATE = "failed"
+
+        print(f"GIT_STATE = '{STATE}'")
+
+        headers = {
+            "User-Agent": "TektonCD, the peaceful cat",
+            "Authorization": f"Bearer {GITLAB_TOKEN}",
+        }
+
+        URLENCODED_REPO_NAME = urllib.parse.quote(REPO_FULL_NAME, safe="")
+
+        params = {
+            "state": STATE,
+            "context": CONTEXT,
+            "target_url": TARGET_URL,
+            "description": DESCRIPTION
+        }
+
+        if COVERAGE:
+            params["coverage"] = float(COVERAGE)
+
+        encoded_params = urllib.parse.urlencode(params)
+
+        api_url = f"{API_PATH_PREFIX}/projects/{URLENCODED_REPO_NAME}/statuses/{SHA}?{encoded_params}"
+
+        print(f"POST to {GITLAB_HOST_URL}{api_url}")
+        conn = http.client.HTTPSConnection(GITLAB_HOST_URL)
+
+        try:
+            conn.request("POST", api_url, headers=headers)
+
+            resp = conn.getresponse()
+            if not str(resp.status).startswith("2"):
+                print(f"{resp.status} | Unable to set status")
+                response_data = json.dumps(json.loads(resp.read()), indent=4)
+                print(response_data)
+                sys.exit(1)
+            else:
+                print(f"Just set status of {REPO_FULL_NAME}#{SHA} to {STATE}")
+        finally:
+            conn.close()
