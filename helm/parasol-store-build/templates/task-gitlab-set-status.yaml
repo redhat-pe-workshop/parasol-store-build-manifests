@@ -123,23 +123,24 @@ spec:
         DESCRIPTION = "$(params.DESCRIPTION)"
         COVERAGE = "$(params.COVERAGE)"
 
-
-        if STATE in ['Succeeded', 'Completed']:
-            STATE = "success"
+        if STATE == "Running":
+            GIT_STATE = "running"
+        elif STATE in ['Succeeded', 'Completed']:
+            GIT_STATE = "success"
         else:
-            STATE = "failed"
+            GIT_STATE = "failed"
 
-        print(f"GIT_STATE = '{STATE}'")
+        print(f"GIT_STATE = '{GIT_STATE}'")
 
         headers = {
-            "User-Agent": "TektonCD, the peaceful cat",
+            "User-Agent": "TektonCD",
             "Authorization": f"Bearer {GITLAB_TOKEN}",
         }
 
         URLENCODED_REPO_NAME = urllib.parse.quote(REPO_FULL_NAME, safe="")
 
         params = {
-            "state": STATE,
+            "state": GIT_STATE,
             "context": CONTEXT,
             "target_url": TARGET_URL,
             "description": DESCRIPTION
@@ -165,6 +166,6 @@ spec:
                 print(response_data)
                 sys.exit(1)
             else:
-                print(f"Just set status of {REPO_FULL_NAME}#{SHA} to {STATE}")
+                print(f"Just set status of {REPO_FULL_NAME}#{SHA} to {GIT_STATE}")
         finally:
             conn.close()
