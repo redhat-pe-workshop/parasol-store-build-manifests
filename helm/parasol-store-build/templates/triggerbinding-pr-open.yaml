@@ -14,3 +14,7 @@ spec:
       value: {{ include "parasol-store.image" . }}
     - name: dockerfile
       value: {{ .Values.image.dockerfile }}
+    - name: git-token-secret-name
+      value: {{ include "parasol-store-build.name" . }}-git-token
+    - name: git-token-secret-key
+      value: token

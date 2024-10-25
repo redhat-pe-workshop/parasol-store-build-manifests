@@ -18,6 +18,10 @@ spec:
       type: string
     - name: output-image-tag
       type: string
+    - name: git-token-secret-name
+      type: string
+    - name: git-token-secret-key
+      type: string
   tasks:
     - name: git-clone
       params:
@@ -65,8 +69,6 @@ spec:
       params:
         - name: GITLAB_HOST_URL
           value: $(params.source-repo)
-        - name: DESCRIPTION
-          value: Compilation error
         - name: TARGET_URL
           value: ''
         - name: SHA
@@ -74,7 +76,9 @@ spec:
         - name: TASKS_STATUS
           value: $(tasks.status)
         - name: GITLAB_TOKEN_SECRET_NAME
-          value: parasol-store-build-git-token
+          value: $(params.git-token-secret-name)
+        - name: GITLAB_TOKEN_SECRET_KEY
+          value: $(params.git-token-secret-key)
       taskRef:
         kind: Task
         name: gitlab-set-status
