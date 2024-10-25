@@ -10,6 +10,8 @@ spec:
     - name: git-revision-short
     - name: output-image
     - name: dockerfile
+    - name: git-token-secret-name
+    - name: git-token-secret-key    
   resourcetemplates:
     - apiVersion: tekton.dev/v1beta1
       kind: PipelineRun
@@ -27,6 +29,10 @@ spec:
             value: $(tt.params.output-image)
           - name: output-image-tag
             value: $(tt.params.git-revision-short)
+          - name: git-token-secret-name
+            value: $(tt.params.git-token-secret-name)
+          - name: git-token-secret-key
+            value: $(tt.params.git-token-secret-key)
         pipelineRef:
           name: {{ include "parasol-store-build.name" . }}-pr-open
         serviceAccountName: pipeline
