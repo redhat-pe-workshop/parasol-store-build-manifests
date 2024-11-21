@@ -46,7 +46,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 Selector labels
 */}}
 {{- define "parasol-store-build.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "parasol-store-build.name" . }}
+app.kubernetes.io/name: "parasol-store"
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
