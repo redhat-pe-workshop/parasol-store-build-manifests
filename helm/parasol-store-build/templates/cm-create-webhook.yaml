@@ -16,7 +16,7 @@ data:
       tasks:
         - name: Get gitlab projects
           ansible.builtin.uri:
-            url: https://{{ "{{" }} git_host {{ "}}" }}/api/v4/projects
+            url: https://{{ "{{" }} git_host {{ "}}" }}/api/v4/projects?per_page=100
             method: GET
             body_format: form-urlencoded
             headers:
