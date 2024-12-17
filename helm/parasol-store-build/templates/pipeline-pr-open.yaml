@@ -38,19 +38,31 @@ spec:
         - name: GITLAB_TOKEN_SECRET_KEY
           value: $(params.git-token-secret-key)
       taskRef:
-        kind: Task
-        name: gitlab-set-status
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: gitlab-set-status
+          - name: namespace
+            value: {{ .Release.Namespace }}
     - name: git-clone
       runAfter:
         - gitlab-create-task
       params:
-        - name: url
+        - name: URL
           value: $(params.source-repo)
-        - name: revision
+        - name: REVISION
           value: $(params.source-revision)
       taskRef:
-        kind: ClusterTask
-        name: git-clone    
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: git-clone
+          - name: namespace
+            value: openshift-pipelines     
       workspaces:
         - name: output
           workspace: source-folder
@@ -62,12 +74,18 @@ spec:
           value:
             - package
       taskRef:
-        kind: ClusterTask
-        name: maven
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: maven
+          - name: namespace
+            value: openshift-pipelines
       workspaces:
         - name: source
           workspace: source-folder
-        - name: maven-settings
+        - name: maven_settings
           workspace: maven-settings
     - name: build-and-push-image
       runAfter:
@@ -78,8 +96,14 @@ spec:
         - name: IMAGE
           value: $(params.output-image):$(params.output-image-tag)
       taskRef:
-        kind: ClusterTask
-        name: buildah
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: buildah
+          - name: namespace
+            value: openshift-pipelines
       workspaces:
         - name: source
           workspace: source-folder
@@ -99,8 +123,14 @@ spec:
         - name: GITLAB_TOKEN_SECRET_KEY
           value: $(params.git-token-secret-key)
       taskRef:
-        kind: Task
-        name: gitlab-set-status
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: gitlab-set-status
+          - name: namespace
+            value: {{ .Release.Namespace }}
   workspaces:
     - name: source-folder
     - name: maven-settings
