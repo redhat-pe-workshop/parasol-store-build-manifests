@@ -1,4 +1,4 @@
-apiVersion: tekton.dev/v1beta1
+apiVersion: tekton.dev/v1
 kind: Pipeline
 metadata:
   name: {{ include "parasol-store-build.name" . }}-pr-merged
@@ -41,13 +41,19 @@ spec:
   tasks:
     - name: git-clone
       params:
-        - name: url
+        - name: URL
           value: $(params.source-repo)
-        - name: revision
+        - name: REVISION
           value: $(params.source-revision)
       taskRef:
-        kind: ClusterTask
-        name: git-clone    
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: git-clone
+          - name: namespace
+            value: openshift-pipelines     
       workspaces:
         - name: output
           workspace: source-folder
@@ -59,12 +65,18 @@ spec:
           value:
             - package
       taskRef:
-        kind: ClusterTask
-        name: maven
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: maven
+          - name: namespace
+            value: openshift-pipelines
       workspaces:
         - name: source
           workspace: source-folder
-        - name: maven-settings
+        - name: maven_settings
           workspace: maven-settings
     - name: build-and-push-image
       runAfter:
@@ -75,8 +87,14 @@ spec:
         - name: IMAGE
           value: $(params.output-image):$(params.output-image-tag)
       taskRef:
-        kind: ClusterTask
-        name: buildah
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: buildah
+          - name: namespace
+            value: openshift-pipelines
       workspaces:
         - name: source
           workspace: source-folder
@@ -84,8 +102,14 @@ spec:
       runAfter:
         - build-and-push-image
       taskRef:
-        kind: Task
-        name: update-manifest
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: update-manifest
+          - name: namespace
+            value: {{ .Release.Namespace }}
       params:
         - name: IMAGE_TAG
           value: $(params.output-image-tag)
@@ -102,14 +126,20 @@ spec:
         - name: GIT_PUSH_USER_NAME
           value: $(params.git-user)
       workspaces:
-      - name: source
-        workspace: ephemeral
+        - name: source
+          workspace: ephemeral
     - name: update-manifest-staging
       runAfter:
         - build-and-push-image
       taskRef:
-        kind: Task
-        name: update-manifest
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: update-manifest
+          - name: namespace
+            value: {{ .Release.Namespace }}
       params:
         - name: IMAGE_TAG
           value: $(params.output-image-tag)
@@ -132,8 +162,14 @@ spec:
       runAfter:
         - build-and-push-image
       taskRef:
-        kind: Task
-        name: update-manifest
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: update-manifest
+          - name: namespace
+            value: {{ .Release.Namespace }}
       params:
         - name: IMAGE_TAG
           value: $(params.output-image-tag)
@@ -160,8 +196,14 @@ spec:
       runAfter:
         - update-manifest-prod
       taskRef:
-        kind: Task
-        name: open-pr
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: open-pr
+          - name: namespace
+            value: {{ .Release.Namespace }}
       params:
         - name: GITLAB_REPO_URL
           value: $(params.manifest-repo)
