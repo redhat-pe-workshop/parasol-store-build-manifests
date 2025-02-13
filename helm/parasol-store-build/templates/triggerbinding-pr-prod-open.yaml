@@ -1,0 +1,14 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerBinding
+metadata:
+  name: {{ include "parasol-store-build.name" . }}-pr-prod-open
+spec:
+  params:
+    - name: git-repo-url
+      value: $(body.object_attributes.source.git_http_url)
+    - name: git-revision
+      value: $(body.object_attributes.last_commit.id)
+    - name: git-token-secret-name
+      value: {{ include "parasol-store-build.name" . }}-git-token
+    - name: git-token-secret-key
+      value: token
