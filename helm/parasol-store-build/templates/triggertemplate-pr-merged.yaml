@@ -25,6 +25,8 @@ spec:
       kind: PipelineRun
       metadata:
         name: {{ include "parasol-store-build.name" . }}-$(uid)
+        labels:
+          {{- include "parasol-store-build.labels" . | nindent 10 }}
       spec:
         params:
           - name: source-repo
