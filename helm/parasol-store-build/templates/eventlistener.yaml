@@ -8,7 +8,12 @@ spec:
   triggers:
     - name: pr-open-trigger
       template:
+        ###############################################################
+        # Switch between the default and security-augmented pipeline by
+        # toggling the comments for the `ref` statement
         ref: {{ include "parasol-store-build.name" . }}-pr-open
+        # ref: {{ include "parasol-store-build.name" . }}-pr-open-secure
+        ###############################################################
       bindings:
         - kind: TriggerBinding
           ref: {{ include "parasol-store-build.name" . }}-pr-open
@@ -25,7 +30,12 @@ spec:
                   expression: "body.object_attributes.last_commit.id.truncate(7)"
     - name: pr-merged-trigger
       template:
+        ###############################################################
+        # Switch between the default and security-augmented pipeline by
+        # toggling the comments for the `ref` statement
         ref: {{ include "parasol-store-build.name" . }}-pr-merged
+        # ref: {{ include "parasol-store-build.name" . }}-pr-merged-secure
+        ###############################################################
       bindings:
         - kind: TriggerBinding
           ref: {{ include "parasol-store-build.name" . }}-pr-merged
@@ -42,7 +52,12 @@ spec:
                   expression: "body.object_attributes.merge_commit_sha.truncate(7)"
     - name: pr-prod-open-trigger
       template:
+        ###############################################################
+        # Switch between the default and security-augmented pipeline by
+        # toggling the comments for the `ref` statement
         ref: {{ include "parasol-store-build.name" . }}-pr-prod-open
+        # ref: {{ include "parasol-store-build.name" . }}-pr-prod-open-secure
+        ###############################################################
       bindings:
         - kind: TriggerBinding
           ref: {{ include "parasol-store-build.name" . }}-pr-prod-open

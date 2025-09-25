@@ -2,7 +2,7 @@
 apiVersion: triggers.tekton.dev/v1beta1
 kind: TriggerTemplate
 metadata:
-  name: {{ include "parasol-store-build.name" . }}-pr-open
+  name: {{ include "parasol-store-build.name" . }}-pr-open-secure
 spec:
   params:
     - name: git-repo-url
@@ -12,11 +12,16 @@ spec:
     - name: dockerfile
     - name: git-token-secret-name
     - name: git-token-secret-key    
+    - name: push-user-username
+      description: the user authorizing the push
+    - name: push-user-email
+      description: that user's email
   resourcetemplates:
     - apiVersion: tekton.dev/v1beta1
       kind: PipelineRun
       metadata:
-        generateName: {{ include "parasol-store-build.name" . }}-pre-merge-check-
+        # generateName: {{ include "parasol-store-build.name" . }}-pre-merge-check-
+        generateName: {{ include "parasol-store-build.name" . }}-pre-merge-check-secure-
         labels:
             {{- include "parasol-store-build.selectorLabels" . | nindent 10 }}
       spec:
@@ -35,9 +40,18 @@ spec:
             value: $(tt.params.git-token-secret-name)
           - name: git-token-secret-key
             value: $(tt.params.git-token-secret-key)
+          - name: username
+            value: $(tt.params.push-user-username)
+          - name: email
+            value: $(tt.params.push-user-email)
         pipelineRef:
-          name: {{ include "parasol-store-build.name" . }}-pr-open
+        #  name: {{ include "parasol-store-build.name" . }}-pr-open
+          name: {{ include "parasol-store-build.name" . }}-pr-open-secure
         serviceAccountName: pipeline
+        taskRunSpecs:
+          - pipelineTaskName: setup-gitsign-environment
+            taskServiceAccountName: {{ include "parasol-store-build.name" . }}-setup-sa  
+  
         workspaces:
           - name: source-folder
             volumeClaimTemplate:

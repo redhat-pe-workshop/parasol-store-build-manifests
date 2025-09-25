@@ -2,7 +2,7 @@
 apiVersion: triggers.tekton.dev/v1beta1
 kind: TriggerTemplate
 metadata:
-  name: {{ include "parasol-store-build.name" . }}-pr-prod-open
+  name: {{ include "parasol-store-build.name" . }}-pr-prod-open-secure
 spec:
   params:
     - name: git-repo-url
@@ -13,7 +13,8 @@ spec:
     - apiVersion: tekton.dev/v1beta1
       kind: PipelineRun
       metadata:
-        generateName: {{ include "parasol-store-build.name" . }}-prod-check-
+        #generateName: {{ include "parasol-store-build.name" . }}-prod-check-
+        generateName: {{ include "parasol-store-build.name" . }}-prod-check-secure-
         labels:
           {{- include "parasol-store-build.labels" . | nindent 10 }}
       spec:
@@ -27,6 +28,6 @@ spec:
           - name: git-token-secret-key
             value: $(tt.params.git-token-secret-key)
         pipelineRef:
-          name: {{ include "parasol-store-build.name" . }}-pr-prod-open
-          
+          # name: {{ include "parasol-store-build.name" . }}-pr-prod-open
+          name: {{ include "parasol-store-build.name" . }}-pr-prod-open-secure
         serviceAccountName: pipeline

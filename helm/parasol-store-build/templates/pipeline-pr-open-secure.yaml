@@ -1,0 +1,195 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: {{ include "parasol-store-build.name" . }}-pr-open-secure
+  labels:
+    {{- include "parasol-store-build.labels" . | nindent 4 }}
+spec:
+  params:
+    - name: source-repo
+      description: source repo that contains the application code
+      type: string
+    - name: source-revision
+      description: source revision to build from
+      type: string
+    - name: dockerfile
+      type: string
+    - name: output-image
+      type: string
+    - name: output-image-tag
+      type: string
+    - name: git-token-secret-name
+      type: string
+    - name: git-token-secret-key
+      type: string
+    - name: username
+      type: string
+    - name: email
+      type: string
+  results:
+    - name: QUAY_SCAN_OUTPUT
+      value: "$(tasks.scan-image.results.QUAY_SCAN_OUTPUT)"
+    - name: QUAY_ANALYSIS_URL
+      value: "$(tasks.scan-image.results.ANALYSIS_URL)"
+  tasks:
+    - name: gitlab-create-task
+      params:
+        - name: GITLAB_HOST_URL
+          value: $(params.source-repo)
+        - name: TARGET_URL
+          value: ''
+        - name: SHA
+          value: $(params.source-revision)
+        - name: TASKS_STATUS
+          value: "Running"
+        - name: GITLAB_TOKEN_SECRET_NAME
+          value: $(params.git-token-secret-name)
+        - name: GITLAB_TOKEN_SECRET_KEY
+          value: $(params.git-token-secret-key)
+      taskRef:
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: gitlab-set-status
+          - name: namespace
+            value: {{ .Release.Namespace }}
+    - name: git-clone
+      runAfter:
+        - gitlab-create-task
+      params:
+        - name: URL
+          value: $(params.source-repo)
+        - name: REVISION
+          value: $(params.source-revision)
+      taskRef:
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: git-clone
+          - name: namespace
+            value: openshift-pipelines     
+      workspaces:
+        - name: output
+          workspace: source-folder
+    - name: setup-gitsign-environment
+      runAfter:
+        - gitlab-create-task
+      taskRef:
+        name: setup-environment
+      workspaces:
+        - name: environment
+          workspace: tas-environment
+
+    - name: verify-commit
+      runAfter:
+        - setup-gitsign-environment
+        - git-clone
+      params:
+        - name: username
+          value: $(params.username)
+        - name: email
+          value: $(params.email)
+        - name: tas-env-vars
+          value: $(tasks.setup-gitsign-environment.results.tas-env-vars)
+      taskRef:
+        name: verify-commit
+      workspaces:
+        - name: environment
+          workspace: tas-environment
+        - name: source
+          workspace: source-folder
+
+
+
+    
+    - name: build-source
+      runAfter:
+        - verify-commit
+      params:
+        - name: GOALS
+          value:
+            - package
+      taskRef:
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: maven
+          - name: namespace
+            value: openshift-pipelines
+      workspaces:
+        - name: source
+          workspace: source-folder
+        - name: maven_settings
+          workspace: maven-settings
+    - name: build-and-push-image
+      runAfter:
+        - build-source
+      params:
+        - name: DOCKERFILE
+          value: $(params.dockerfile)
+        - name: IMAGE
+          value: $(params.output-image):$(params.output-image-tag)
+      taskRef:
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: buildah
+          - name: namespace
+            value: openshift-pipelines
+      workspaces:
+        - name: source
+          workspace: source-folder
+    - name: scan-image
+      taskRef:
+        name: scan-image-via-quay
+      params:
+        - name: QUAY_TOKEN
+          value: $(tasks.setup-gitsign-environment.results.quay-token)
+        - name: IMAGE
+          value: $(params.output-image):$(params.output-image-tag)
+        - name: QUAY_REGISTRY_URL
+          value: $(tasks.setup-gitsign-environment.results.quay-url)
+        - name: QUAY_DOCKERCONFIGJSON
+          value: $(tasks.setup-gitsign-environment.results.quay-dockerconfigjson)
+        - name: QUAY_NAMESPACE
+          value: "parasol"
+      
+      runAfter:
+        - build-and-push-image
+
+  finally:
+    - name: gitlab-update-task
+      params:
+        - name: GITLAB_HOST_URL
+          value: $(params.source-repo)
+        - name: TARGET_URL
+          value: ''
+        - name: SHA
+          value: $(params.source-revision)
+        - name: TASKS_STATUS
+          value: $(tasks.status)
+        - name: GITLAB_TOKEN_SECRET_NAME
+          value: $(params.git-token-secret-name)
+        - name: GITLAB_TOKEN_SECRET_KEY
+          value: $(params.git-token-secret-key)
+      taskRef:
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: gitlab-set-status
+          - name: namespace
+            value: {{ .Release.Namespace }}
+  workspaces:
+    - name: source-folder
+    - name: maven-settings
+    - name: tas-environment
