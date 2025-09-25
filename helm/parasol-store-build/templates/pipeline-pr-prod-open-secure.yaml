@@ -1,0 +1,66 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: {{ include "parasol-store-build.name" . }}-pr-prod-open-secure
+  labels:
+    {{- include "parasol-store-build.labels" . | nindent 4 }}
+spec:
+  params:
+    - name: source-repo
+      description: source repo that contains the application code
+      type: string
+    - name: source-revision
+      description: source revision to build from
+      type: string
+    - name: git-token-secret-name
+      type: string
+    - name: git-token-secret-key
+      type: string
+  tasks:
+    - name: gitlab-create-task
+      params:
+        - name: GITLAB_HOST_URL
+          value: $(params.source-repo)
+        - name: TARGET_URL
+          value: ''
+        - name: SHA
+          value: $(params.source-revision)
+        - name: TASKS_STATUS
+          value: "Running"
+        - name: GITLAB_TOKEN_SECRET_NAME
+          value: $(params.git-token-secret-name)
+        - name: GITLAB_TOKEN_SECRET_KEY
+          value: $(params.git-token-secret-key)
+      taskRef:
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: gitlab-set-status
+          - name: namespace
+            value: {{ .Release.Namespace }}
+  finally:
+    - name: gitlab-update-task
+      params:
+        - name: GITLAB_HOST_URL
+          value: $(params.source-repo)
+        - name: TARGET_URL
+          value: ''
+        - name: SHA
+          value: $(params.source-revision)
+        - name: TASKS_STATUS
+          value: $(tasks.status)
+        - name: GITLAB_TOKEN_SECRET_NAME
+          value: $(params.git-token-secret-name)
+        - name: GITLAB_TOKEN_SECRET_KEY
+          value: $(params.git-token-secret-key)
+      taskRef:
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: gitlab-set-status
+          - name: namespace
+            value: {{ .Release.Namespace }}

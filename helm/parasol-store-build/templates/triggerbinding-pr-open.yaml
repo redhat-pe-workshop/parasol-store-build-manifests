@@ -18,3 +18,7 @@ spec:
       value: {{ include "parasol-store-build.name" . }}-git-token
     - name: git-token-secret-key
       value: token
+    - name: push-user-username
+      value: $(body.user.username)
+    - name: push-user-email
+      value: $(body.user.email)

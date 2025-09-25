@@ -1,0 +1,211 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: scan-image-via-quay
+spec:
+  description: >-
+    This task copies a container image from OpenShift internal registry 
+    to an on-premises Quay registry, preserving the image name and tag structure.
+  
+  params:
+    - name: IMAGE
+      type: string
+      description: Source image reference from internal registry
+    - name: QUAY_REGISTRY_URL
+      type: string
+      description: URL of the on-premises Quay registry 
+    - name: QUAY_NAMESPACE
+      type: string
+      description: Target namespace/organization in Quay registry
+      default: "parasol"
+    - name: QUAY_TOKEN
+      type: string
+      description: Token for QUAY API access
+      default: ""
+    - name: QUAY_DOCKERCONFIGJSON
+      type: string
+      description: dockerconfig for quay
+      default: ""
+    - name: SKIP_TLS_VERIFY
+      type: string
+      description: Skip TLS verification for registries
+      default: "true"
+    - name: VERBOSE
+      type: string
+      description: Enable verbose output
+      default: "false"
+
+  results:
+    - name: ANALYSIS_URL
+      description: URL of the Quay vulnerabilities analysis page
+    - name: QUAY_SCAN_OUTPUT
+      description: Summary for display in Tekton plugin
+
+  volumes:
+    - name: shared-between-steps
+      emptyDir: {}
+    - name: script-volume
+      configMap:
+        name: scripts
+
+  steps:
+    - name: setup-task
+      image: quay.io/tssc_demos/skopeo-jq:20250918
+      volumeMounts:
+        - name: shared-between-steps
+          mountPath: /stepData
+
+      script: |
+        #!/bin/bash
+        set -e
+
+        QUAY_AUTH=$(params.QUAY_DOCKERCONFIGJSON)
+        QUAY_AUTH_DEC=$(echo $QUAY_AUTH | base64 -d)
+        echo "DEBUG: $QUAY_AUTH_DEC"
+
+
+
+        # Enable verbose output if requested
+        if [ "$(params.VERBOSE)" = "true" ]; then
+          set -x
+        fi
+
+        # Parse source image to extract name and tag
+        IMAGE="$(params.IMAGE)"
+        echo "Image: $IMAGE"
+
+        # Extract registry URL from source image for debugging
+        if [[ "$IMAGE" =~ ^([^/]+)/(.*)$ ]]; then
+          REGISTRY_URL="${BASH_REMATCH[1]}"
+          IMAGE_PATH="${BASH_REMATCH[2]}"
+          echo "DEBUG: Parsed registry URL: $REGISTRY_URL"
+          echo "DEBUG: Parsed image path: $IMAGE_PATH"
+        fi
+
+        # Extract image name and tag from source
+        if [[ "$IMAGE" =~ (.*/)?([^:/]+):([^:/]+)$ ]]; then
+          IMAGE_NAME="${BASH_REMATCH[2]}"
+          IMAGE_TAG="${BASH_REMATCH[3]}"
+        else
+          echo "Error: Unable to parse source image format: $IMAGE"
+          exit 1
+        fi
+
+        
+
+        
+      
+        QUAY_REGISTRY="$(params.QUAY_REGISTRY_URL)"
+        QUAY_NAMESPACE="$(params.QUAY_NAMESPACE)"
+        
+
+        
+
+        # Set up authentication 
+        echo $QUAY_AUTH_DEC > /tmp/auth.json
+        
+        # Update the environment variable to point to the merged file
+        export REGISTRY_AUTH_FILE="/tmp/auth.json"
+        echo "DEBUG: $(cat $REGISTRY_AUTH_FILE)"
+
+        # Prepare skopeo command arguments
+        SKOPEO_ARGS=""
+        if [ "$(params.SKIP_TLS_VERIFY)" = "true" ]; then
+          SKOPEO_ARGS="$SKOPEO_ARGS --src-tls-verify=false --dest-tls-verify=false"
+        fi
+
+        
+        
+        # Show skopeo version 
+        skopeo --version
+                
+        
+        DIGEST=$(skopeo inspect docker://$IMAGE | jq -r '.Digest')
+        echo "Image digest: $DIGEST"
+        echo -n "$DIGEST" > /stepData/image-digest.txt
+        echo -n "$IMAGE" > /stepData/image.txt
+        echo -n "https://${QUAY_REGISTRY}/api/v1/repository/${QUAY_NAMESPACE}/${IMAGE_NAME}/manifest/${DIGEST}/security" > /stepData/scannerURL.txt
+
+    - name: wait-for-scan
+      image: quay.io/tssc_demos/skopeo-jq:20250918
+      volumeMounts:
+        - name: shared-between-steps
+          mountPath: /stepData
+
+      script: |
+        #!/bin/bash
+        set -e
+        
+        echo "🔍 Checking scan status for $(cat /stepData/image.txt)..."
+        TOKEN_b64=$(params.QUAY_TOKEN)
+        QUAY_TOKEN=$(echo -n $TOKEN_b64 | base64 -d)
+
+        echo "QUAY TOKEN:  $QUAY_TOKEN"
+        echo "URL:      :  $(cat /stepData/scannerURL.txt)"
+
+        # Wait for scan to complete (max 5 minutes)
+        for i in {1..60}; do
+          echo "⏳ Attempt $i: Checking scan status..."
+          
+          RESPONSE=$(curl -s -H "Authorization: Bearer $QUAY_TOKEN" \
+            "$(cat /stepData/scannerURL.txt)?vulnerabilities=true" \
+            || echo '{"status":"failed"}')
+          
+          STATUS=$(echo "$RESPONSE" | jq -r '.status // "pending"')
+          echo "📊 Current status: $STATUS"
+          
+          if [ "$STATUS" = "scanned" ]; then
+            echo "✅ Scan completed successfully!"
+            echo "$RESPONSE" > /stepData/scan-results.json
+            break
+          elif [ "$STATUS" = "failed" ]; then
+            echo "❌ Scan failed!"
+            exit 1
+          fi
+          
+          echo "⏱️  Waiting 5 seconds before next check..."
+          sleep 5
+        done
+        
+        if [ "$STATUS" != "scanned" ]; then
+          echo "⚠️  Scan did not complete within timeout"
+          exit 1
+        fi
+
+
+    - name: parse-results
+      image: quay.io/tssc_demos/skopeo-jq:20250918
+      volumeMounts:
+        - name: shared-between-steps
+          mountPath: /stepData
+        - name: script-volume
+          mountPath: /scripts
+          readOnly: true
+
+      script: |
+        #!/bin/bash
+        set -e
+        DIGEST=$(cat /stepData/image-digest.txt)
+        echo "Using digest: $DIGEST"
+        IMAGE=$(cat /stepData/image.txt)
+        echo "Image:        $IMAGE"
+        SCANNER_URL=$(cat /stepData/scannerURL.txt)
+        echo "Scan URL:     $SCANNER_URL"
+        #SCAN_RESULTS=$(cat /stepData/scan-results.json)
+        
+        ANALYSIS_URL="${SCANNER_URL/\/api\/v1\//\/}"
+        ANALYSIS_URL="${ANALYSIS_URL%/*}?tab=vulnerabilities"
+        echo "Analysis URL  $ANALYSIS_URL"
+        # save as a result
+        echo $ANALYSIS_URL > $(results.ANALYSIS_URL.path)
+        
+
+        SCAN_SUMMARY=$(jq -f /scripts/summary-filter.jq /stepData/scan-results.json)
+        echo $SCAN_SUMMARY > $(results.QUAY_SCAN_OUTPUT.path)
+
+        jq -r -f /scripts/table-filter.jq /stepData/scan-results.json
+
+
+        
+
+

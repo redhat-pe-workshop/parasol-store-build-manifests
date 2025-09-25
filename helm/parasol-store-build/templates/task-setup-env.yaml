@@ -1,0 +1,76 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: setup-environment
+spec:
+  results:
+    - name: tas-env-vars
+      description: Environment variables as base64 encoded string
+    - name: quay-token
+      description: quay token (base64 encoded) needed for clair scan
+    - name: quay-url
+      description: quay url for external registry access 
+    - name: quay-dockerconfigjson
+      description: docker config for quay (b64)
+  workspaces:
+    - name: environment
+      description: Workspace to store environment files
+  steps:
+  - name: cosign-environment
+    image: registry.redhat.io/openshift4/ose-cli:latest
+    workingDir: $(workspaces.environment.path)
+    script: |
+      #!/bin/bash
+      set -e
+      
+      # The service account token is automatically mounted
+      echo "Current user:"
+      oc whoami
+      
+      /scripts/init-tas.sh
+
+      # Verify that the environment file was created
+      if [ -f tas-env.sh ]; then
+        base64 -w 0 tas-env.sh > $(results.tas-env-vars.path)
+        echo "Environment variables encoded and saved to result"
+      else
+        echo "ERROR: Environment file was not created"
+        exit 1
+      fi
+      /scripts/get-quay.sh
+
+      if [ -f quay-host.txt ]; then
+        cat quay-host.txt > $(results.quay-url.path)
+        echo "quay url saved to result"
+      else
+        echo "ERROR: quay url was not created"
+        exit 1
+      fi
+      
+      if [ -f quay-token.txt ]; then
+        cat quay-token.txt > $(results.quay-token.path)
+        echo "quay token saved to result"
+      else
+        echo "ERROR: quay token was not created"
+        exit 1
+      fi
+
+      if [ -f quay-docker.txt ]; then
+        cat quay-docker.txt > $(results.quay-dockerconfigjson.path)
+        echo "quay docker config saved to result"
+      else
+        echo "ERROR: quay docker config was not created"
+        exit 1
+      fi
+
+
+      
+    volumeMounts:
+      - name: script-volume
+        mountPath: /scripts
+        readOnly: true
+  volumes:
+    - name: script-volume
+      configMap:
+        name: scripts
+        defaultMode: 0755  # Make the script executable

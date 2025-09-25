@@ -1,0 +1,339 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: scripts
+data:
+  init-tas.sh: |
+    #!/bin/bash
+    
+    # Colors for output
+    RED='\033[0;31m'
+    GREEN='\033[0;32m'
+    YELLOW='\033[1;33m'
+    NC='\033[0m' # No Color
+
+    # Function to print colored output
+    print_status() {
+        echo -e "${GREEN}[INFO]${NC} $1"
+    }
+
+    print_warning() {
+        echo -e "${YELLOW}[WARN]${NC} $1"
+    }
+
+    print_error() {
+        echo -e "${RED}[ERROR]${NC} $1"
+    }
+    
+    # Your script content
+    print_status "Initializing TAS (Trusted Artifact Signer) environment variables..."
+    
+    # Check if oc command exists
+    if ! command -v oc &> /dev/null; then
+        print_error "oc command not found. Please install OpenShift CLI first."
+        exit 1
+    fi
+    
+    # Get environment variable values from OpenShift
+    print_status "Retrieving TUF URL..."
+    TUF_URL=$(oc get tuf -o jsonpath='{.items[0].status.url}' -n trusted-artifact-signer 2>/dev/null)
+    if [[ -z "$TUF_URL" ]]; then
+        print_error "Could not retrieve TUF URL from trusted-artifact-signer namespace"
+        exit 1
+    fi
+    
+    print_status "Retrieving Keycloak route..."
+    KEYCLOAK_HOST=$(oc get route keycloak -n keycloak --no-headers 2>/dev/null | tail -n 1 | awk '{print $2}')
+    if [[ -z "$KEYCLOAK_HOST" ]]; then
+        print_error "Could not retrieve Keycloak route from keycloak namespace"
+        exit 1
+    fi
+    OIDC_ISSUER_URL="https://${KEYCLOAK_HOST}/realms/backstage"
+    
+    print_status "Retrieving Fulcio URL..."
+    COSIGN_FULCIO_URL=$(oc get fulcio -o jsonpath='{.items[0].status.url}' -n trusted-artifact-signer 2>/dev/null)
+    if [[ -z "$COSIGN_FULCIO_URL" ]]; then
+        print_error "Could not retrieve Fulcio URL from trusted-artifact-signer namespace"
+        exit 1
+    fi
+    
+    print_status "Retrieving Rekor URL..."
+    COSIGN_REKOR_URL=$(oc get rekor -o jsonpath='{.items[0].status.url}' -n trusted-artifact-signer 2>/dev/null)
+    if [[ -z "$COSIGN_REKOR_URL" ]]; then
+        print_error "Could not retrieve Rekor URL from trusted-artifact-signer namespace"
+        exit 1
+    fi
+    
+    # Get the route hostname
+    print_status "Getting cli server route..."
+    ROUTE_HOST=$(oc get routes -l app.kubernetes.io/component=client-server -n trusted-artifact-signer --no-headers 2>/dev/null | tail -n 1 | awk '{print $2}')
+    
+    if [[ -z "$ROUTE_HOST" ]]; then
+        print_error "Could not find cli-server route in trusted-artifact-signer namespace"
+        exit 1
+    fi
+    
+    print_status "Found route host: $ROUTE_HOST"
+    
+    # Construct URLs
+    COSIGN_CLI_URL="https://${ROUTE_HOST}/clients/linux/cosign-amd64.gz"
+    GITSIGN_CLI_URL="https://${ROUTE_HOST}/clients/linux/gitsign-amd64.gz"
+
+
+
+
+
+    # Export environment variables for current session
+    print_status "Setting environment variables..."
+    export COSIGN_CLI_URL=$COSIGN_CLI_URL
+    export GITSIGN_CLI_URL=$GITSIGN_CLI_URL
+    export TUF_URL="$TUF_URL"
+    export OIDC_ISSUER_URL="$OIDC_ISSUER_URL"
+    export COSIGN_FULCIO_URL="$COSIGN_FULCIO_URL"
+    export COSIGN_REKOR_URL="$COSIGN_REKOR_URL"
+    export COSIGN_MIRROR="$TUF_URL"
+    export COSIGN_ROOT="$TUF_URL/root.json"
+    export COSIGN_OIDC_CLIENT_ID="trusted-artifact-signer"
+    export GITSIGN_OIDC_CLIENT_ID="trusted-artifact-signer"
+    export COSIGN_OIDC_ISSUER="$OIDC_ISSUER_URL"
+    export COSIGN_CERTIFICATE_OIDC_ISSUER="$OIDC_ISSUER_URL"
+    export COSIGN_YES="true"
+    export SIGSTORE_FULCIO_URL="$COSIGN_FULCIO_URL"
+    export SIGSTORE_OIDC_ISSUER="$COSIGN_OIDC_ISSUER"
+    export SIGSTORE_REKOR_URL="$COSIGN_REKOR_URL"
+    export REKOR_REKOR_SERVER="$COSIGN_REKOR_URL"
+    
+    print_status "TAS environment variables initialized successfully!"
+    print_status "TUF URL: $TUF_URL"
+    print_status "OIDC Issuer URL: $OIDC_ISSUER_URL"
+    print_status "Fulcio URL: $COSIGN_FULCIO_URL"
+    print_status "Rekor URL: $COSIGN_REKOR_URL"
+    print_status "COSIGN CLI URL: $COSIGN_CLI_URL"
+    print_status "GITSIGN CLI URL: $GITSIGN_CLI_URL"
+    
+    # Write environment variables to a file that can be sourced by subsequent steps
+    cat > tas-env.sh << EOF
+    export COSIGN_CLI_URL=$COSIGN_CLI_URL
+    export GITSIGN_CLI_URL=$GITSIGN_CLI_URL
+    export TUF_URL="$TUF_URL"
+    export OIDC_ISSUER_URL="$OIDC_ISSUER_URL"
+    export COSIGN_FULCIO_URL="$COSIGN_FULCIO_URL"
+    export COSIGN_REKOR_URL="$COSIGN_REKOR_URL"
+    export COSIGN_MIRROR="$TUF_URL"
+    export COSIGN_ROOT="$TUF_URL/root.json"
+    export COSIGN_OIDC_CLIENT_ID="trusted-artifact-signer"
+    export GITSIGN_OIDC_CLIENT_ID="trusted-artifact-signer"
+    export COSIGN_OIDC_ISSUER="$OIDC_ISSUER_URL"
+    export COSIGN_CERTIFICATE_OIDC_ISSUER="$OIDC_ISSUER_URL"
+    export COSIGN_YES="true"
+    export SIGSTORE_FULCIO_URL="$COSIGN_FULCIO_URL"
+    export SIGSTORE_OIDC_ISSUER="$COSIGN_OIDC_ISSUER"
+    export SIGSTORE_REKOR_URL="$COSIGN_REKOR_URL"
+    export REKOR_REKOR_SERVER="$COSIGN_REKOR_URL"
+    EOF
+    
+    print_status "Environment variables written to $(pwd)/tas-env.sh"
+
+  download-cli.sh: |
+    #!/bin/bash
+    
+    # Colors for output
+    RED='\033[0;31m'
+    GREEN='\033[0;32m'
+    YELLOW='\033[1;33m'
+    NC='\033[0m' # No Color
+
+    # Function to print colored output
+    print_status() {
+        echo -e "${GREEN}[INFO]${NC} $1"
+    }
+
+    print_warning() {
+        echo -e "${YELLOW}[WARN]${NC} $1"
+    }
+
+    print_error() {
+        echo -e "${RED}[ERROR]${NC} $1"
+    }
+
+    print_status "Starting cosign and gitsign installation..."
+    
+    # Check if oc command exists
+    if ! command -v oc &> /dev/null; then
+        print_error "oc command not found. Please install OpenShift CLI first."
+        exit 1
+    fi
+    
+    # Get the route hostname
+    print_status "Getting client server route..."
+    ROUTE_HOST=$(oc get routes -l app.kubernetes.io/component=client-server -n trusted-artifact-signer --no-headers 2>/dev/null | tail -n 1 | awk '{print $2}')
+    
+    if [[ -z "$ROUTE_HOST" ]]; then
+        print_error "Could not find client-server route in trusted-artifact-signer namespace"
+        exit 1
+    fi
+    
+    print_status "Found route host: $ROUTE_HOST"
+    
+    # Construct URLs
+    COSIGN_CLI_URL="https://${ROUTE_HOST}/clients/linux/cosign-amd64.gz"
+    GITSIGN_CLI_URL="https://${ROUTE_HOST}/clients/linux/gitsign-amd64.gz"
+    
+    print_status "Cosign URL: $COSIGN_CLI_URL"
+    print_status "Gitsign URL: $GITSIGN_CLI_URL"
+    
+    print_status "Current directory: $(pwd)"
+
+    # Download files
+    # need to use curl, as the default image for the terminal operator doesn't have wget
+    print_status "Downloading cosign..."
+    if ! curl -fsSL -o "$(basename "$COSIGN_CLI_URL")" "$COSIGN_CLI_URL"; then
+        print_error "Failed to download cosign from $COSIGN_CLI_URL"
+        exit 1
+    fi
+
+    print_status "Downloading gitsign..."
+    if ! curl -fsSL -o "$(basename "$GITSIGN_CLI_URL")" "$GITSIGN_CLI_URL"; then
+        print_error "Failed to download gitsign from $GITSIGN_CLI_URL"
+        exit 1
+    fi
+    
+    # Extract and install cosign
+    print_status "Installing cosign..."
+    if ! gunzip cosign-amd64.gz; then
+        print_error "Failed to extract cosign-amd64.gz"
+        exit 1
+    fi
+    
+    chmod +x cosign-amd64
+    
+    if ! mv cosign-amd64 cosign; then
+        print_error "Failed to install cosign"
+        exit 1
+    fi
+    
+    # Extract and install gitsign
+    print_status "Installing gitsign..."
+    if ! gunzip gitsign-amd64.gz; then
+        print_error "Failed to extract gitsign-amd64.gz"
+        exit 1
+    fi
+    
+    chmod +x gitsign-amd64
+    
+    if ! mv gitsign-amd64 gitsign; then
+        print_error "Failed to install gitsign"
+        exit 1
+    fi
+    
+    print_status "CLI installation completed successfully!"
+
+  get-quay.sh: |
+    #!/bin/bash
+
+    # Colors for output
+    RED='\033[0;31m'
+    GREEN='\033[0;32m'
+    YELLOW='\033[1;33m'
+    NC='\033[0m' # No Color
+
+    # Function to print colored output
+    print_status() {
+        echo -e "${GREEN}[INFO]${NC} $1"
+    }
+
+    print_warning() {
+        echo -e "${YELLOW}[WARN]${NC} $1"
+    }
+
+    print_error() {
+        echo -e "${RED}[ERROR]${NC} $1"
+    }
+
+
+    print_status "Getting Quay config..."
+    QUAY_HOST=$(oc get route quay-quay -n quay-registry --no-headers 2>/dev/null | tail -n 1 | awk '{print $2}')
+    if [[ -z "$QUAY_HOST" ]]; then
+        print_error "Could not retrieve quay route from quay-registry namespace"
+        exit 1
+    fi
+    
+    QUAY_TOKEN=$(oc get secret quay-admin-token -n quay-registry -o jsonpath='{.data.token}')
+
+    echo -n $QUAY_HOST > quay-host.txt
+    echo -n $QUAY_TOKEN > quay-token.txt
+
+    QUAY_DOCKER=$(oc get secret parasol-store-build-registry-creds -o jsonpath='{.data.\.dockerconfigjson}')
+    echo -n $QUAY_DOCKER > quay-docker.txt
+
+
+  summary-filter.jq: |
+    {vulnerabilities: ([.data.Layer.Features[]?.Vulnerabilities[]? | .Severity] | group_by(.) | map({key: (.[0] | ascii_downcase), value: length}) | from_entries)}
+
+
+  table-filter.jq: | 
+    def severity_order:
+        {"Critical": 1, "High": 2, "Medium": 3, "Low": 4};
+
+    # Function to sanitize text by removing newlines and normalizing whitespace
+    def sanitize_text:
+        gsub("\\r"; "") | gsub("\\n"; " ") | gsub("\\t"; " ") | gsub("  +"; " ") | ltrimstr(" ") | rtrimstr(" ");
+
+    # Function to wrap text to specified width
+    def wrap_text(width):
+        def split_at_spaces(text; max_width):
+        if (text | length) <= max_width then [text]
+        else
+            (text[:max_width] | rindex(" ")) as $space_pos |
+            if $space_pos then
+            [text[:$space_pos]] + split_at_spaces(text[$space_pos+1:]; max_width)
+            else
+            [text[:max_width]] + split_at_spaces(text[max_width:]; max_width)
+            end
+        end;
+        split_at_spaces(sanitize_text; width);
+
+    def pad(width): tostring | (. + (" " * width))[:width];
+
+    [
+        .data.Layer.Features[] |
+        select(.Vulnerabilities != null and (.Vulnerabilities | length) > 0) |
+        .Name as $package_name |
+        .Version as $package_version |
+        .Vulnerabilities[] |
+        {
+        Severity: .Severity,
+        Package: $package_name,
+        Name: .Name,
+        CurrentVersion: $package_version,
+        FixedBy: (.FixedBy // "None"),
+        Description: (.Description | sanitize_text)
+        }
+    ] |
+    sort_by(severity_order[.Severity]) as $data |
+
+    10 as $sev_width |
+    25 as $pkg_width |
+    18 as $name_width |
+    22 as $ver_width |
+    22 as $fix_width |
+    55 as $desc_width |
+
+    ("+" + ("-" * ($sev_width + 2)) + "+" + ("-" * ($pkg_width + 2)) + "+" + ("-" * ($name_width + 2)) + "+" + ("-" * ($ver_width + 2)) + "+" + ("-" * ($fix_width + 2)) + "+" + ("-" * ($desc_width + 2)) + "+") as $separator |
+
+    $separator,
+    ("| " + ("Severity" | pad($sev_width)) + " | " + ("Package" | pad($pkg_width)) + " | " + ("CVE/Name" | pad($name_width)) + " | " + ("Current Version" | pad($ver_width)) + " | " + ("Fixed By" | pad($fix_width)) + " | " + ("Description" | pad($desc_width)) + " |"),
+    $separator,
+
+    ($data[] |
+        . as $row |
+        ($row.Description | wrap_text($desc_width)) as $desc_lines |
+
+        ("| " + ($row.Severity | pad($sev_width)) + " | " + ($row.Package | pad($pkg_width)) + " | " + ($row.Name | pad($name_width)) + " | " + ($row.CurrentVersion | pad($ver_width)) + " | " + ($row.FixedBy | pad($fix_width)) + " | " + ($desc_lines[0] | pad($desc_width)) + " |"),
+
+        (range(1; $desc_lines | length) |
+        ("| " + ("" | pad($sev_width)) + " | " + ("" | pad($pkg_width)) + " | " + ("" | pad($name_width)) + " | " + ("" | pad($ver_width)) + " | " + ("" | pad($fix_width)) + " | " + ($desc_lines[.] | pad($desc_width)) + " |")
+        ),
+
+        $separator
+    )
